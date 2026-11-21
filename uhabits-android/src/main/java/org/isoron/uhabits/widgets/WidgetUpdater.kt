@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
+ * Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
  *
  * This file is part of Loop Habit Tracker.
  *
@@ -23,29 +23,27 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import me.tatarka.inject.annotations.Inject
-import org.isoron.platform.time.DateUtils
 import org.isoron.uhabits.core.commands.Command
 import org.isoron.uhabits.core.commands.CommandRunner
 import org.isoron.uhabits.core.commands.CreateRepetitionCommand
-import org.isoron.uhabits.core.preferences.Preferences
 import org.isoron.uhabits.core.preferences.WidgetPreferences
 import org.isoron.uhabits.core.tasks.TaskRunner
+import org.isoron.uhabits.core.utils.DateUtils
 import org.isoron.uhabits.inject.AppContext
 import org.isoron.uhabits.intents.IntentScheduler
+import javax.inject.Inject
 
 /**
  * A WidgetUpdater listens to the commands being executed by the application and
  * updates the home-screen widgets accordingly.
  */
-@Inject
-class WidgetUpdater(
+class WidgetUpdater
+@Inject constructor(
     @AppContext private val context: Context,
     private val commandRunner: CommandRunner,
     private val taskRunner: TaskRunner,
     private val widgetPrefs: WidgetPreferences,
-    private val intentScheduler: IntentScheduler,
-    private val preferences: Preferences
+    private val intentScheduler: IntentScheduler
 ) : CommandRunner.Listener {
 
     override fun onCommandFinished(command: Command) {
@@ -74,7 +72,7 @@ class WidgetUpdater(
     }
 
     fun scheduleStartDayWidgetUpdate() {
-        val timestamp = DateUtils.getStartOfTomorrowWithOffset(preferences.midnightDelayHours, 0)
+        val timestamp = DateUtils.getStartOfTomorrowWithOffset()
         intentScheduler.scheduleWidgetUpdate(timestamp)
     }
 
@@ -86,6 +84,7 @@ class WidgetUpdater(
             updateWidgets(modifiedHabitId, StreakWidgetProvider::class.java)
             updateWidgets(modifiedHabitId, FrequencyWidgetProvider::class.java)
             updateWidgets(modifiedHabitId, TargetWidgetProvider::class.java)
+            updateWidgets(modifiedHabitId, TodayWidgetProvider::class.java)
         }
     }
 
@@ -94,8 +93,11 @@ class WidgetUpdater(
             ComponentName(context, providerClass)
         )
 
-        val modifiedWidgetIds = when (modifiedHabitId) {
-            null -> widgetIds.toList()
+        // The Today widget lists every habit, so it is not configured
+        // per-habit: any habit change refreshes all of its instances.
+        val modifiedWidgetIds = when {
+            modifiedHabitId == null -> widgetIds.toList()
+            providerClass == TodayWidgetProvider::class.java -> widgetIds.toList()
             else -> widgetIds.filter { w ->
                 widgetPrefs.getHabitIdsFromWidgetId(w).contains(modifiedHabitId)
             }
