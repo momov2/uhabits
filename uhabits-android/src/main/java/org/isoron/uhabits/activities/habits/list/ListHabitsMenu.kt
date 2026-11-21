@@ -32,10 +32,11 @@ import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsMenuBehavior
 import org.isoron.uhabits.inject.ActivityContext
 import org.isoron.uhabits.inject.ActivityScope
 import org.isoron.uhabits.utils.StyledResources
-import javax.inject.Inject
+import me.tatarka.inject.annotations.Inject
 
+@Inject
 @ActivityScope
-class ListHabitsMenu @Inject constructor(
+class ListHabitsMenu(
     @ActivityContext context: Context,
     private val preferences: Preferences,
     private val themeSwitcher: ThemeSwitcher,
