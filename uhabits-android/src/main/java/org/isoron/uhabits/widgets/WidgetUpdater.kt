@@ -32,14 +32,14 @@ import org.isoron.uhabits.core.preferences.WidgetPreferences
 import org.isoron.uhabits.core.tasks.TaskRunner
 import org.isoron.uhabits.inject.AppContext
 import org.isoron.uhabits.intents.IntentScheduler
-import javax.inject.Inject
+import me.tatarka.inject.annotations.Inject
 
 /**
  * A WidgetUpdater listens to the commands being executed by the application and
  * updates the home-screen widgets accordingly.
  */
-class WidgetUpdater
-@Inject constructor(
+@Inject
+class WidgetUpdater(
     @AppContext private val context: Context,
     private val commandRunner: CommandRunner,
     private val taskRunner: TaskRunner,
