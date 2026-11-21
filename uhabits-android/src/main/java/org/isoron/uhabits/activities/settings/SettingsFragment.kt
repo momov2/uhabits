@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
+ * Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
  *
  * This file is part of Loop Habit Tracker.
  *
@@ -24,20 +24,17 @@ import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
-import android.provider.DocumentsContract
 import android.provider.Settings
 import android.util.Log
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
+import android.widget.Toast
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
-import androidx.recyclerview.widget.RecyclerView
-import org.isoron.platform.time.DayOfWeek
-import org.isoron.platform.time.JavaLocalDateFormatter
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.isoron.uhabits.HabitsApplication
 import org.isoron.uhabits.R
 import org.isoron.uhabits.activities.habits.list.RESULT_BUG_REPORT
@@ -47,13 +44,13 @@ import org.isoron.uhabits.activities.habits.list.RESULT_IMPORT_DATA
 import org.isoron.uhabits.activities.habits.list.RESULT_REPAIR_DB
 import org.isoron.uhabits.core.preferences.Preferences
 import org.isoron.uhabits.core.ui.NotificationTray
+import org.isoron.uhabits.core.utils.DateUtils.Companion.getLongWeekdayNames
 import org.isoron.uhabits.notifications.AndroidNotificationTray.Companion.createAndroidNotificationChannel
 import org.isoron.uhabits.notifications.RingtoneManager
 import org.isoron.uhabits.utils.StyledResources
-import org.isoron.uhabits.utils.applyBottomInset
 import org.isoron.uhabits.utils.startActivitySafely
 import org.isoron.uhabits.widgets.WidgetUpdater
-import java.util.Locale
+import java.util.Calendar
 
 class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListener {
     private var sharedPrefs: SharedPreferences? = null
@@ -61,23 +58,17 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
     private lateinit var prefs: Preferences
     private var widgetUpdater: WidgetUpdater? = null
 
+    // Coroutine scope for Firebase sign-in / sync actions, cancelled when
+    // this fragment is destroyed. Uses MainScope (kotlinx-coroutines-android,
+    // already a dependency) so no extra lifecycle library is needed.
+    private val uiScope = MainScope()
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        when (requestCode) {
-            RINGTONE_REQUEST_CODE -> {
-                ringtoneManager!!.update(data)
-                updateRingtoneDescription()
-                return
-            }
-            PUBLIC_BACKUP_REQUEST_CODE -> {
-                val uri = data?.data ?: return
-                val flags =
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                requireContext().contentResolver.takePersistableUriPermission(uri, flags)
-                sharedPrefs?.edit()?.putString("publicBackupFolder", uri.toString())?.apply()
-                updatePublicBackupFolderSummary()
-                return
-            }
+        if (requestCode == RINGTONE_REQUEST_CODE) {
+            ringtoneManager!!.update(data)
+            updateRingtoneDescription()
+            return
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
@@ -112,15 +103,6 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
         super.onViewCreated(view, savedInstanceState)
     }
 
-    override fun onCreateRecyclerView(
-        inflater: LayoutInflater?,
-        parent: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): RecyclerView? {
-        return super.onCreateRecyclerView(inflater, parent, savedInstanceState)
-            .also { it.applyBottomInset() }
-    }
-
     override fun onPreferenceTreeClick(preference: Preference): Boolean {
         val key = preference.key ?: return false
         when (key) {
@@ -141,14 +123,18 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
                 activity?.startActivitySafely(intent)
                 return true
             }
-            "publicBackupFolder" -> {
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-                intent.addFlags(
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                )
-                startActivityForResult(intent, PUBLIC_BACKUP_REQUEST_CODE)
+            "signInGoogle" -> {
+                signInWithGoogle()
+                return true
+            }
+            "signOutGoogle" -> {
+                HabitsApplication.firebaseAuthManager.signOut()
+                Toast.makeText(requireContext(), R.string.signed_out, Toast.LENGTH_LONG).show()
+                updateAccountStatus()
+                return true
+            }
+            "syncNow" -> {
+                syncNow()
                 return true
             }
         }
@@ -165,15 +151,85 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
             devCategory.isVisible = false
         }
         updateWeekdayPreference()
-        updatePublicBackupFolderSummary()
+        updateAccountStatus()
 
         findPreference("reminderSound").isVisible = false
+    }
+
+    override fun onDestroy() {
+        uiScope.cancel()
+        super.onDestroy()
+    }
+
+    /**
+     * Shows the signed-in Google account (or "not signed in") and shows
+     * only the actions that make sense for that state.
+     */
+    private fun updateAccountStatus() {
+        val user = HabitsApplication.firebaseAuthManager.currentUser
+        val statusPref = findPreference("accountStatus")
+        statusPref.summary = if (user != null) {
+            getString(R.string.account_signed_in_as, user.email ?: user.uid)
+        } else {
+            getString(R.string.account_not_signed_in)
+        }
+        findPreference("signInGoogle").isVisible = user == null
+        findPreference("signOutGoogle").isVisible = user != null
+        findPreference("syncNow").isVisible = user != null
+    }
+
+    private fun signInWithGoogle() {
+        uiScope.launch {
+            val result = HabitsApplication.firebaseAuthManager.signIn(requireActivity())
+            result.onSuccess { user ->
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.sign_in_success, user.email ?: user.uid),
+                    Toast.LENGTH_LONG
+                ).show()
+                updateAccountStatus()
+                // First sync right after login: download the cloud state
+                // (e.g. after a reinstall), then upload the merged state.
+                syncNow()
+            }.onFailure { e ->
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.sign_in_failed, e.message ?: ""),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun syncNow() {
+        val sync = HabitsApplication.firebaseSyncManager
+        if (!sync.isSignedIn()) {
+            Toast.makeText(requireContext(), R.string.sync_not_signed_in, Toast.LENGTH_LONG).show()
+            return
+        }
+        uiScope.launch {
+            try {
+                val stats = sync.syncNow()
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.sync_success, stats.uploaded, stats.downloaded),
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                // Local data is untouched by a failed sync; just report it.
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.sync_failed, e.message ?: ""),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     private fun updateWeekdayPreference() {
         val weekdayPref = findPreference("pref_first_weekday") as ListPreference
         val currentFirstWeekday = prefs.firstWeekday.daysSinceSunday + 1
-        val dayNames = JavaLocalDateFormatter(Locale.getDefault()).longWeekdayNames(DayOfWeek.SATURDAY)
+        val dayNames = getLongWeekdayNames(Calendar.SATURDAY)
         val dayValues = arrayOf("7", "1", "2", "3", "4", "5", "6")
         weekdayPref.entries = dayNames
         weekdayPref.entryValues = dayValues
@@ -230,39 +286,7 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
         ringtonePreference.summary = ringtoneName
     }
 
-    private fun updatePublicBackupFolderSummary() {
-        val pref = findPreference("publicBackupFolder")
-        val uriString = sharedPrefs?.getString("publicBackupFolder", null)
-        if (uriString == null) {
-            pref.summary = getString(R.string.no_public_backup_folder_selected)
-            return
-        }
-        val uri = Uri.parse(uriString)
-        val path = fullPathFor(uri)
-        pref.summary = path ?: uriString
-    }
-
-    private fun fullPathFor(uri: Uri): String? {
-        return when (uri.scheme) {
-            "content" -> {
-                val docId = DocumentsContract.getTreeDocumentId(uri)
-                val (type, rel) = docId.split(":", limit = 2).let {
-                    it[0] to it.getOrElse(1) { "" }
-                }
-                val base = if (type.equals("primary", true)) {
-                    Environment.getExternalStorageDirectory().absolutePath
-                } else {
-                    "/storage/$type"
-                }
-                if (rel.isEmpty()) base else "$base/$rel"
-            }
-            "file" -> java.io.File(uri.path!!).absolutePath
-            else -> null
-        }
-    }
-
     companion object {
         private const val RINGTONE_REQUEST_CODE = 1
-        private const val PUBLIC_BACKUP_REQUEST_CODE = 2
     }
 }

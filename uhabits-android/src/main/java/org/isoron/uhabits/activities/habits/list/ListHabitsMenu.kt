@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
+ * Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
  *
  * This file is part of Loop Habit Tracker.
  *
@@ -24,8 +24,6 @@ import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SearchView
-import me.tatarka.inject.annotations.Inject
 import org.isoron.uhabits.R
 import org.isoron.uhabits.core.models.HabitList
 import org.isoron.uhabits.core.preferences.Preferences
@@ -34,29 +32,20 @@ import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsMenuBehavior
 import org.isoron.uhabits.inject.ActivityContext
 import org.isoron.uhabits.inject.ActivityScope
 import org.isoron.uhabits.utils.StyledResources
+import javax.inject.Inject
 
-@Inject
 @ActivityScope
-class ListHabitsMenu(
+class ListHabitsMenu @Inject constructor(
     @ActivityContext context: Context,
     private val preferences: Preferences,
     private val themeSwitcher: ThemeSwitcher,
     val behavior: ListHabitsMenuBehavior
 ) {
-    val activity = context as AppCompatActivity
-    private var menu: Menu? = null
-    private var isSearchActive = false
+    val activity = (context as AppCompatActivity)
 
     fun onCreate(inflater: MenuInflater, menu: Menu) {
-        this.menu = menu
         menu.clear()
         inflater.inflate(R.menu.list_habits, menu)
-        createSearchBar(menu)
-        createMenuItems(menu)
-        updateArrows(menu)
-    }
-
-    private fun createMenuItems(menu: Menu) {
         val nightModeItem = menu.findItem(R.id.actionToggleNightMode)
         val hideArchivedItem = menu.findItem(R.id.actionHideArchived)
         val hideCompletedItem = menu.findItem(R.id.actionHideCompleted)
@@ -68,30 +57,7 @@ class ListHabitsMenu(
         } else {
             hideCompletedItem.title = activity.resources.getString(R.string.hide_completed)
         }
-    }
-
-    private fun createSearchBar(menu: Menu) {
-        val searchContainer = menu.findItem(R.id.actionSearchContainer)
-        searchContainer.isVisible = isSearchActive
-        menu.setGroupVisible(R.id.actionItems, !isSearchActive)
-        with(searchContainer.actionView as SearchView) {
-            queryHint = activity.getString(R.string.search)
-            isIconified = false
-            setQuery(behavior.searchQuery, false)
-            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-                override fun onQueryTextSubmit(query: String) = false
-                override fun onQueryTextChange(newText: String): Boolean {
-                    behavior.onSearchQueryChanged(newText)
-                    return true
-                }
-            })
-            setOnCloseListener {
-                isSearchActive = false
-                menu.setGroupVisible(R.id.actionItems, true)
-                activity.invalidateOptionsMenu()
-                true
-            }
-        }
+        updateArrows(menu)
     }
 
     private fun updateArrows(menu: Menu) {
@@ -143,6 +109,11 @@ class ListHabitsMenu(
                 return true
             }
 
+            R.id.actionStatistics -> {
+                behavior.onViewStatistics()
+                return true
+            }
+
             R.id.actionHideArchived -> {
                 behavior.onToggleShowArchived()
                 activity.invalidateOptionsMenu()
@@ -177,12 +148,6 @@ class ListHabitsMenu(
 
             R.id.actionSortStatus -> {
                 behavior.onSortByStatus()
-                return true
-            }
-
-            R.id.actionSearch -> {
-                isSearchActive = true
-                activity.invalidateOptionsMenu()
                 return true
             }
 

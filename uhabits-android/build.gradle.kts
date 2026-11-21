@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
+ * Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
  *
  * This file is part of Loop Habit Tracker.
  *
@@ -19,10 +19,10 @@
 
 plugins {
     alias(libs.plugins.agp)
+    alias(libs.plugins.google.services)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.ktlint.plugin)
-    alias(libs.plugins.mokkery)
 }
 
 tasks.compileLint {
@@ -44,15 +44,9 @@ android {
     namespace = "org.isoron.uhabits"
     compileSdk = 36
 
-    sourceSets {
-        getByName("main") {
-            assets.srcDirs("src/main/assets", "../uhabits-core/assets/main")
-        }
-    }
-
     defaultConfig {
-        versionCode = 20302
-        versionName = "2.3.2"
+        versionCode = 20301
+        versionName = "2.3.1"
         minSdk = 28
         targetSdk = 36
         applicationId = "org.isoron.uhabits"
@@ -90,26 +84,17 @@ android {
         sourceCompatibility(JavaVersion.VERSION_17)
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-    }
+    kotlinOptions.jvmTarget = JavaVersion.VERSION_17.toString()
     buildFeatures.viewBinding = true
     lint.abortOnError = false
 }
 
-mokkery {
-    defaultMockMode.set(dev.mokkery.MockMode.autofill)
-    stubs.allowClassInheritance.set(true)
-    stubs.allowConcreteClassInstantiation.set(true)
-}
-
 dependencies {
+    compileOnly(libs.jsr250.api)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.appIntro)
     implementation(libs.jsr305)
-    implementation(libs.kotlin.inject.runtime)
+    implementation(libs.dagger)
     implementation(libs.guava)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
@@ -122,23 +107,19 @@ dependencies {
     implementation(libs.legacy.preference.v14)
     implementation(libs.legacy.support.v4)
     implementation(libs.material)
-    implementation(libs.documentfile)
     implementation(libs.opencsv)
     implementation(libs.konfetti.xml)
+    // Firebase login + cloud sync (branch firebase-login)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.credentials)
+    implementation(libs.credentials.play.services.auth)
+    implementation(libs.googleid)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation(project(":uhabits-core"))
-    ksp(libs.kotlin.inject.compiler)
+    ksp(libs.dagger.compiler)
 
-    androidTestImplementation(libs.annotation)
-    androidTestImplementation(libs.kotlin.inject.runtime)
-    androidTestImplementation(libs.espresso.contrib)
-    androidTestImplementation(libs.espresso.core)
-    androidTestImplementation(libs.junit)
-    androidTestImplementation(libs.ktor.client.mock)
-    androidTestImplementation(libs.ktor.jackson)
-    androidTestImplementation(libs.rules)
-    androidTestImplementation(libs.uiautomator)
-
-    testImplementation(libs.kotlin.inject.runtime)
-    testImplementation(libs.junit.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.bundles.androidTest)
+    testImplementation(libs.bundles.test)
 }

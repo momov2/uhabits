@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "88671737361",
+    "project_id": "habits-firebase1",
+    "storage_bucket": "habits-firebase1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:88671737361:android:b5682f52b1e2e1559283b0",
+        "android_client_info": {
+          "package_name": "org.isoron.uhabits"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "88671737361-o4dbv53iieagcqj8b8kove58qjo08eb9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "org.isoron.uhabits",
+            "certificate_hash": "6cd0d90badf58d8abf2f5b9aaea863e2d25e65d7"
+          }
+        },
+        {
+          "client_id": "88671737361-bqamnu24jukd43t4s8hjo30ljuq4be84.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDf-7WCTgY3i3BSCy2e_w04SLrJm1ta9ck"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "88671737361-bqamnu24jukd43t4s8hjo30ljuq4be84.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
