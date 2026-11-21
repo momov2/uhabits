@@ -9,6 +9,7 @@ commonsLang3 = "3.14.0"
 credentials = "1.6.0"
 dagger = "2.55"
 desugar = "2.1.4"
+documentfile = "1.0.1"
 dexmaker = "2.28.3"
 espresso = "3.6.1"
 firebaseBom = "34.19.0"
@@ -51,6 +52,7 @@ credentials-play-services-auth = { group = "androidx.credentials", name = "crede
 dagger = { group = "com.google.dagger", name = "dagger", version.ref = "dagger" }
 dagger-compiler = { group = "com.google.dagger", name = "dagger-compiler", version.ref = "dagger" }
 desugar_jdk_libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
+documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 dexmaker-mockito = { group = "com.linkedin.dexmaker", name = "dexmaker-mockito", version.ref = "dexmaker" }
 espresso-contrib = { group = "androidx.test.espresso", name = "espresso-contrib", version.ref = "espresso" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
@@ -67,6 +69,7 @@ junit-junit = { module = "junit:junit", version.ref = "junitVersion" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 konfetti-xml = { group = "nl.dionsegijn", name = "konfetti-xml", version.ref = "konfetti-xml" }
 kotlin-inject-runtime = { group = "me.tatarka.inject", name = "kotlin-inject-runtime", version.ref = "kotlin-inject" }
+kotlin-inject-compiler = { group = "me.tatarka.inject", name = "kotlin-inject-compiler-ksp", version.ref = "kotlin-inject" }
 kotlin-stdlib-jdk8 = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version.ref = "kotlin" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "ktxCoroutine" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "ktxCoroutine" }
