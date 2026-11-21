@@ -24,6 +24,7 @@ import android.graphics.PointF
 import android.graphics.text.LineBreaker.BREAK_STRATEGY_BALANCED
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
+import android.util.TypedValue
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
@@ -64,6 +65,7 @@ class HabitCardView(
     private var numberPanel: NumberPanelView
     private var innerFrame: LinearLayout
     private var label: TextView
+    private var subtitle: TextView
     private var scoreRing: RingView
 
     private var dataOffset = 0
@@ -79,10 +81,28 @@ class HabitCardView(
             text = r.name
             setTextColor(c)
         }
+        // UI redesign (firebase-login branch): subtitle under the name
+        // with the current streak and score, plus the reminder time.
+        subtitle.apply {
+            val reminder = r.reminder
+            val reminderText = if (reminder != null) {
+                " • ${context.getString(R.string.reminder)} " +
+                    "%02d:%02d".format(reminder.hour, reminder.minute)
+            } else {
+                ""
+            }
+            text = context.getString(
+                R.string.habit_card_subtitle,
+                r.streak,
+                (r.score * 100).toInt()
+            ) + reminderText
+        }
         scoreRing.apply {
             setPercentage(r.score.toFloat())
             setPrecision(1.0f / 16)
             setColor(c)
+            // The big number in the ring is the current streak (days).
+            setText(r.streak.toString())
         }
         checkmarkPanel.visibility = when (r.isNumerical) {
             true -> View.GONE
@@ -120,24 +140,52 @@ class HabitCardView(
     }
 
     init {
+        // Progress ring: large enough to carry the current streak number
+        // in the middle (score = ring fill, streak = number).
         scoreRing = RingView(context).apply {
-            val thickness = dp(3f)
-            val margin = dp(8f).toInt()
-            val ringSize = dp(15f).toInt()
+            val thickness = dp(4f)
+            val margin = dp(10f).toInt()
+            val ringSize = dp(48f).toInt()
             layoutParams = LinearLayout.LayoutParams(ringSize, ringSize).apply {
                 setMargins(margin, 0, margin, 0)
                 gravity = Gravity.CENTER
             }
             setThickness(thickness)
+            setTextSize(
+                TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_SP,
+                    14f,
+                    context.resources.displayMetrics
+                )
+            )
         }
 
         label = TextView(context).apply {
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
-            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             if (SDK_INT >= Build.VERSION_CODES.Q) {
                 breakStrategy = BREAK_STRATEGY_BALANCED
             }
+        }
+
+        subtitle = TextView(context).apply {
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(sres.getColor(R.attr.contrast60))
+        }
+
+        // Name + subtitle stacked, so the card has room to breathe and the
+        // streak / score / reminder are readable at a glance.
+        val labelColumn = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            addView(label)
+            addView(subtitle)
         }
 
         checkmarkPanel = checkmarkPanelFactory.create().apply {
@@ -182,7 +230,7 @@ class HabitCardView(
             elevation = dp(1f)
 
             addView(scoreRing)
-            addView(label)
+            addView(labelColumn)
             addView(checkmarkPanel)
             addView(numberPanel)
 
@@ -194,8 +242,8 @@ class HabitCardView(
 
         clipToPadding = false
         layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-        val margin = dp(3f).toInt()
-        setPadding(margin, 0, margin, margin)
+        val margin = dp(6f).toInt()
+        setPadding(margin, margin, margin, margin)
         addView(innerFrame)
     }
 
