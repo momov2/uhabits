@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-  ~ Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
+  ~ Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
   ~
   ~ This file is part of Loop Habit Tracker.
   ~
@@ -18,6 +18,8 @@
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -81,6 +83,14 @@
         </activity>
 
         <activity
+            android:name=".activities.habits.stats.StatisticsActivity"
+            android:label="@string/statistics">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".activities.habits.list.ListHabitsActivity" />
+        </activity>
+
+        <activity
             android:name=".activities.intro.IntroActivity"
             android:label=""
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
@@ -88,7 +98,7 @@
         <activity
             android:name=".widgets.activities.HabitPickerDialog"
             android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.Dialog.Alert">
+            android:theme="@style/Theme.AppCompat.Light.Dialog">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -97,7 +107,7 @@
         <activity
             android:name=".widgets.activities.BooleanHabitPickerDialog"
             android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.Dialog.Alert">
+            android:theme="@style/Theme.AppCompat.Light.Dialog">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -106,7 +116,7 @@
         <activity
             android:name=".widgets.activities.NumericalHabitPickerDialog"
             android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.Dialog.Alert">
+            android:theme="@style/Theme.AppCompat.Light.Dialog">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -142,6 +152,24 @@
 
         <service
             android:name=".widgets.StackWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <receiver
+            android:name=".widgets.TodayWidgetProvider"
+            android:exported="true"
+            android:label="@string/today_widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_info" />
+        </receiver>
+
+        <service
+            android:name=".widgets.TodayWidgetService"
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
