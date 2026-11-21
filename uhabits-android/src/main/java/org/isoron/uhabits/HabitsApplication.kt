@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
+ * Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
  *
  * This file is part of Loop Habit Tracker.
  *
@@ -27,10 +27,8 @@ import org.isoron.platform.time.setToday
 import org.isoron.uhabits.core.database.UnsupportedDatabaseVersionException
 import org.isoron.uhabits.core.reminders.ReminderScheduler
 import org.isoron.uhabits.core.ui.NotificationTray
-import org.isoron.uhabits.inject.AppContextModule
-import org.isoron.uhabits.inject.DaggerHabitsApplicationComponent
 import org.isoron.uhabits.inject.HabitsApplicationComponent
-import org.isoron.uhabits.inject.HabitsModule
+import org.isoron.uhabits.inject.create
 import org.isoron.uhabits.sync.FirebaseAuthManager
 import org.isoron.uhabits.sync.FirebaseSyncManager
 import org.isoron.uhabits.utils.DatabaseUtils
@@ -65,20 +63,15 @@ class HabitsApplication : Application() {
         }
 
         val db = DatabaseUtils.getDatabaseFile(this)
-        HabitsApplication.component = DaggerHabitsApplicationComponent
-            .builder()
-            .appContextModule(AppContextModule(context))
-            .habitsModule(HabitsModule(db))
-            .build()
+        HabitsApplication.component = HabitsApplicationComponent::class.create(
+            appContext = context,
+            dbFile = db
+        )
 
         val prefs = component.preferences
         prefs.lastAppVersion = BuildConfig.VERSION_CODE
 
-        // Upstream dev replaced DateUtils.setStartDayOffset with the
-        // platform.time "today" (see iSoron/uhabits HabitsApplication):
-        // the midnight delay is baked into "today" itself, and
-        // MidnightTimer refreshes it at the next start of day.
-        setToday(computeToday(prefs.midnightDelayHours, 0))
+        setToday(computeToday(component.preferences.midnightDelayHours, 0))
         setFirstWeekday(prefs.firstWeekday)
 
         val habitList = component.habitList
@@ -86,7 +79,7 @@ class HabitsApplication : Application() {
 
         // Firebase login + cloud sync (branch firebase-login). The managers
         // are plain singletons held here so Settings can reach them without
-        // changing the Dagger graph. Firebase itself is initialised
+        // changing the inject graph. Firebase itself is initialised
         // automatically by the google-services plugin.
         firebaseAuthManager = FirebaseAuthManager(context)
         firebaseSyncManager = FirebaseSyncManager(habitList, component.modelFactory)
