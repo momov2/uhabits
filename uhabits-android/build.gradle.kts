@@ -30,11 +30,14 @@ tasks.compileLint {
 }
 
 /*
-Added on top of kotlinOptions to work around this issue:
+Added on top of compilerOptions to work around this issue:
 https://youtrack.jetbrains.com/issue/KTIJ-24311/task-current-target-is-17-and-kaptGenerateStubsProductionDebugKotlin-task-current-target-is-1.8-jvm-target-compatibility-should#focus=Comments-27-6798448.0-0
 Updating gradle might fix this, so try again in the future to remove this and run:
 ./gradlew --rerun-tasks :uhabits-android:kaptGenerateStubsReleaseKotlin
 If this doesn't produce any warning, try to remove it.
+(Kotlin 2.3.20 removed the old kotlinOptions.jvmTarget String API; migrated to
+kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } } — same form as
+upstream dev, commit 82c1ff2.)
  */
 kotlin {
     jvmToolchain(17)
@@ -84,7 +87,11 @@ android {
         sourceCompatibility(JavaVersion.VERSION_17)
     }
 
-    kotlinOptions.jvmTarget = JavaVersion.VERSION_17.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
     buildFeatures.viewBinding = true
     lint.abortOnError = false
 }
