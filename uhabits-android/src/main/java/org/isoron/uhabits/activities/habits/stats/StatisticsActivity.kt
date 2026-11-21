@@ -30,17 +30,16 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import org.isoron.platform.time.LocalDate
+import org.isoron.platform.time.getToday
 import org.isoron.uhabits.HabitsApplication
 import org.isoron.uhabits.R
 import org.isoron.uhabits.activities.AndroidThemeSwitcher
 import org.isoron.uhabits.core.models.Entry
 import org.isoron.uhabits.core.models.Habit
 import org.isoron.uhabits.core.models.NumericalHabitType
-import org.isoron.uhabits.core.models.Timestamp
-import org.isoron.uhabits.core.utils.DateUtils.Companion.getTodayWithOffset
 import org.isoron.uhabits.utils.StyledResources
 import org.isoron.uhabits.utils.dp
-import java.util.Calendar
 
 /**
  * Statistics & streaks overview, reachable from the main screen menu
@@ -93,7 +92,7 @@ class StatisticsActivity : AppCompatActivity() {
     }
 
     private fun addTodaySection(root: LinearLayout, habits: List<Habit>) {
-        val today = getTodayWithOffset()
+        val today = getToday()
         val done = habits.count { isCompletedOn(it, today) }
         root.addView(sectionTitle(getString(R.string.stats_today)))
         root.addView(bigNumber("$done / ${habits.size}"))
@@ -101,7 +100,7 @@ class StatisticsActivity : AppCompatActivity() {
     }
 
     private fun addLast30DaysSection(root: LinearLayout, habits: List<Habit>) {
-        val today = getTodayWithOffset()
+        val today = getToday()
         val from = today.minus(29)
         var completed = 0
         var total = 0
@@ -132,10 +131,10 @@ class StatisticsActivity : AppCompatActivity() {
     }
 
     private fun addMonthSection(root: LinearLayout, habits: List<Habit>) {
-        val today = getTodayWithOffset()
+        val today = getToday()
         // Day of the month taken from the app's own "today" (which honors
         // the midnight-delay setting), not from the wall clock.
-        val dayOfMonth = today.toCalendar().get(Calendar.DAY_OF_MONTH)
+        val dayOfMonth = today.day
         val firstOfMonth = today.minus(dayOfMonth - 1)
         root.addView(sectionTitle(getString(R.string.stats_this_month)))
         val grid = GridLayout(this).apply {
@@ -172,7 +171,7 @@ class StatisticsActivity : AppCompatActivity() {
 
     private fun addPerHabitSection(root: LinearLayout, habits: List<Habit>) {
         root.addView(sectionTitle(getString(R.string.stats_per_habit)))
-        val today = getTodayWithOffset()
+        val today = getToday()
         val from = today.minus(29)
         val sorted = habits.sortedByDescending { currentStreak(it) }
         for (habit in sorted) {
@@ -242,7 +241,7 @@ class StatisticsActivity : AppCompatActivity() {
          * entries the user actually recorded (not the auto-filled computed
          * entries).
          */
-        fun isCompletedOn(habit: Habit, timestamp: Timestamp): Boolean {
+        fun isCompletedOn(habit: Habit, timestamp: LocalDate): Boolean {
             val value = habit.originalEntries.get(timestamp).value
             return if (habit.isNumerical) {
                 when (habit.targetType) {
@@ -260,7 +259,7 @@ class StatisticsActivity : AppCompatActivity() {
          * streak whose last day is today or yesterday, or 0.
          */
         fun currentStreak(habit: Habit): Int {
-            val today = getTodayWithOffset()
+            val today = getToday()
             val yesterday = today.minus(1)
             for (streak in habit.streaks.getBest(25)) {
                 if (!streak.end.isOlderThan(yesterday)) return streak.length
