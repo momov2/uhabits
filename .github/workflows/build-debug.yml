@@ -1,4 +1,8 @@
-# Build Habits (Loop Habit Tracker v2.3.1) on a GitHub-hosted runner.
+# Build Habits (Loop Habit Tracker) on a GitHub-hosted runner.
+# v2: android-actions/setup-android@v3 failed on ubuntu-24.04 (run #1,
+# "Set up Android SDK" failed in ~3s, no usable log). Replaced with a
+# manual cmdline-tools + sdkmanager install, which is deterministic.
+# Also upgraded setup-java to v5 (v4 is deprecated).
 name: Build debug APK (hosted runner)
 
 on:
@@ -15,13 +19,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17 (Temurin)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          set -e
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          cd /tmp
+          curl -sSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
+          unzip -q cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Build debug APK
         run: ./gradlew :uhabits-android:assembleDebug --stacktrace --console=plain
