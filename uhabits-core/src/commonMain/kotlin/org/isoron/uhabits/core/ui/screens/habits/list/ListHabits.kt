@@ -19,10 +19,12 @@
 package org.isoron.uhabits.core.ui.screens.habits.list
 
 import org.isoron.platform.time.getToday
+import org.isoron.uhabits.core.models.Habit
 import org.isoron.uhabits.core.models.HabitList
 import org.isoron.uhabits.core.models.HabitList.Order
 import org.isoron.uhabits.core.models.HabitMatcher
 import org.isoron.uhabits.core.models.PaletteColor
+import org.isoron.uhabits.core.models.Reminder
 import org.isoron.uhabits.core.ui.views.Theme
 
 data class ListHabitsState(
@@ -64,6 +66,8 @@ object ListHabitsPresenter {
                     isNumerical = habit.isNumerical,
                     archived = habit.isArchived,
                     score = score,
+                    streak = currentStreak(habit),
+                    reminder = habit.reminder,
                     checkmarks = entries.map { it.value },
                     completed = entries.map { it.completed },
                     notes = entries.map { it.notes },
@@ -81,6 +85,20 @@ object ListHabitsPresenter {
             theme = theme
         )
     }
+
+    /**
+     * Length (in days) of the streak the user is currently on: the streak
+     * whose last day is today or yesterday, or 0. Same rule as the old
+     * HabitCardView.currentStreak and the Statistics page.
+     */
+    private fun currentStreak(habit: Habit): Int {
+        val today = getToday()
+        val yesterday = today.minus(1)
+        for (streak in habit.streaks.getBest(25)) {
+            if (!streak.end.isOlderThan(yesterday)) return streak.length
+        }
+        return 0
+    }
 }
 
 data class HabitCardState(
@@ -91,6 +109,8 @@ data class HabitCardState(
     val isNumerical: Boolean,
     val archived: Boolean,
     val score: Double,
+    val streak: Int = 0,
+    val reminder: Reminder? = null,
     val checkmarks: List<Int>,
     val completed: List<Boolean>,
     val notes: List<String>,
