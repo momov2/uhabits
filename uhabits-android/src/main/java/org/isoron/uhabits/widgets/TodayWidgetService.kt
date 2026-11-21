@@ -26,11 +26,11 @@ import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import android.widget.RemoteViewsService.RemoteViewsFactory
 import org.isoron.platform.gui.toInt
+import org.isoron.platform.time.getToday
 import org.isoron.uhabits.HabitsApplication
 import org.isoron.uhabits.R
 import org.isoron.uhabits.core.models.Habit
 import org.isoron.uhabits.core.ui.views.WidgetTheme
-import org.isoron.uhabits.core.utils.DateUtils.Companion.getTodayWithOffset
 import org.isoron.uhabits.intents.IntentFactory
 import org.isoron.uhabits.intents.PendingIntentFactory
 
@@ -70,7 +70,7 @@ internal class TodayRemoteViewsFactory(
     override fun getViewAt(position: Int): RemoteViews? {
         if (position < 0 || position >= habits.size) return null
         val habit = habits[position]
-        val today = getTodayWithOffset()
+        val today = getToday()
         val done = habit.isCompletedToday()
         val views = RemoteViews(context.packageName, R.layout.widget_today_row)
         views.setTextViewText(R.id.widget_today_name, habit.name)
