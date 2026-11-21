@@ -30,6 +30,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import org.isoron.platform.time.LocalDate
 import org.isoron.uhabits.core.models.Entry
 import org.isoron.uhabits.core.models.Frequency
 import org.isoron.uhabits.core.models.Habit
@@ -40,7 +41,6 @@ import org.isoron.uhabits.core.models.ModelObservable
 import org.isoron.uhabits.core.models.NumericalHabitType
 import org.isoron.uhabits.core.models.PaletteColor
 import org.isoron.uhabits.core.models.Reminder
-import org.isoron.uhabits.core.models.Timestamp
 import org.isoron.uhabits.core.models.WeekdayList
 
 /**
@@ -227,7 +227,7 @@ class FirebaseSyncManager(
         // Local values win on conflict (see class docs).
         var changed = false
         for (entry in remoteEntries) {
-            val existing = local.originalEntries.get(entry.timestamp)
+            val existing = local.originalEntries.get(entry.date)
             if (existing.value == Entry.UNKNOWN) {
                 local.originalEntries.add(entry)
                 changed = true
@@ -272,7 +272,7 @@ class FirebaseSyncManager(
             val fields = value as? Map<*, *> ?: continue
             val entryValue = (fields["value"] as? Number)?.toInt() ?: continue
             val notes = fields["notes"] as? String ?: ""
-            entries.add(Entry(Timestamp(millis), entryValue, notes))
+            entries.add(Entry(LocalDate.fromUnixTime(millis), entryValue, notes))
         }
         return entries
     }
@@ -280,7 +280,7 @@ class FirebaseSyncManager(
     private fun serializeHabit(habit: Habit): Map<String, Any?> {
         val entries = HashMap<String, Map<String, Any?>>()
         for (entry in habit.originalEntries.getKnown()) {
-            entries[entry.timestamp.unixTime.toString()] = mapOf(
+            entries[entry.date.unixTime.toString()] = mapOf(
                 "value" to entry.value,
                 "notes" to entry.notes
             )
