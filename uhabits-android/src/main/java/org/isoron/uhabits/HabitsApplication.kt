@@ -21,10 +21,12 @@ package org.isoron.uhabits
 
 import android.app.Application
 import android.content.Context
+import org.isoron.platform.time.computeToday
+import org.isoron.platform.time.setFirstWeekday
+import org.isoron.platform.time.setToday
 import org.isoron.uhabits.core.database.UnsupportedDatabaseVersionException
 import org.isoron.uhabits.core.reminders.ReminderScheduler
 import org.isoron.uhabits.core.ui.NotificationTray
-import org.isoron.uhabits.core.utils.DateUtils.Companion.setStartDayOffset
 import org.isoron.uhabits.inject.AppContextModule
 import org.isoron.uhabits.inject.DaggerHabitsApplicationComponent
 import org.isoron.uhabits.inject.HabitsApplicationComponent
@@ -72,11 +74,12 @@ class HabitsApplication : Application() {
         val prefs = component.preferences
         prefs.lastAppVersion = BuildConfig.VERSION_CODE
 
-        if (prefs.isMidnightDelayEnabled) {
-            setStartDayOffset(3, 0)
-        } else {
-            setStartDayOffset(0, 0)
-        }
+        // Upstream dev replaced DateUtils.setStartDayOffset with the
+        // platform.time "today" (see iSoron/uhabits HabitsApplication):
+        // the midnight delay is baked into "today" itself, and
+        // MidnightTimer refreshes it at the next start of day.
+        setToday(computeToday(prefs.midnightDelayHours, 0))
+        setFirstWeekday(prefs.firstWeekday)
 
         val habitList = component.habitList
         for (h in habitList) h.recompute()
