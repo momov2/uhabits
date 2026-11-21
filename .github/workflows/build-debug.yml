@@ -1,0 +1,34 @@
+# Build Habits (Loop Habit Tracker v2.3.1) on a GitHub-hosted runner.
+name: Build debug APK (hosted runner)
+
+on:
+  push:
+    branches: [main, master, dev, firebase-login]
+  workflow_dispatch:
+
+jobs:
+  build-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        run: ./gradlew :uhabits-android:assembleDebug --stacktrace --console=plain
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: habits-debug-apk
+          path: uhabits-android/build/outputs/apk/debug/uhabits-android-debug.apk
+          if-no-files-found: error
