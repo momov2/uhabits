@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-  ~ Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
+  ~ Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
   ~
   ~ This file is part of Loop Habit Tracker.
   ~
@@ -115,6 +115,35 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+            android:key="accountCategory"
+            android:title="@string/account">
+
+        <Preference
+                android:key="accountStatus"
+                android:selectable="false"
+                android:title="@string/account"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="signInGoogle"
+                android:summary="@string/sign_in_with_google_summary"
+                android:title="@string/sign_in_with_google"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="signOutGoogle"
+                android:title="@string/sign_out"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="syncNow"
+                android:summary="@string/sync_now_summary"
+                android:title="@string/sync_now"
+                app:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
             android:key="databaseCategory"
             android:title="@string/database">
 
@@ -134,12 +163,6 @@
                 android:key="importData"
                 android:summary="@string/import_data_summary"
                 android:title="@string/import_data"
-                app:iconSpaceReserved="false" />
-
-        <Preference
-                android:key="publicBackupFolder"
-                android:title="@string/select_public_backup_folder"
-                android:summary="@string/no_public_backup_folder_selected"
                 app:iconSpaceReserved="false" />
 
     </PreferenceCategory>
