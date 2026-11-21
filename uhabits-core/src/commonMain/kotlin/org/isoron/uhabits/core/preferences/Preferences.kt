@@ -103,7 +103,9 @@ open class Preferences(private val storage: Storage) {
         }
 
     open var theme: Int
-        get() = storage.getInt("pref_theme", ThemeSwitcher.THEME_AUTOMATIC)
+        // Dark is the default theme: the app is designed dark-first, and
+        // the user can still switch to light/automatic from the menu.
+        get() = storage.getInt("pref_theme", ThemeSwitcher.THEME_DARK)
         set(theme) {
             storage.putInt("pref_theme", theme)
         }
