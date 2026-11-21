@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Álinson Santos Xavier <git@axavier.org>
+ * Copyright (C) 2016-2021 Álinson Santos Xavier <git@axavier.org>
  *
  * This file is part of Loop Habit Tracker.
  *
@@ -25,20 +25,19 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
-import me.tatarka.inject.annotations.Inject
+import dagger.Lazy
 import nl.dionsegijn.konfetti.core.Party
 import nl.dionsegijn.konfetti.core.Position
 import nl.dionsegijn.konfetti.core.emitter.Emitter
 import org.isoron.platform.gui.toInt
-import org.isoron.platform.io.JavaUserFile
 import org.isoron.uhabits.R
-import org.isoron.uhabits.activities.common.dialogs.CategoryDialog
 import org.isoron.uhabits.activities.common.dialogs.CheckmarkDialog
 import org.isoron.uhabits.activities.common.dialogs.ColorPickerDialogFactory
 import org.isoron.uhabits.activities.common.dialogs.ConfirmDeleteDialog
 import org.isoron.uhabits.activities.common.dialogs.NumberDialog
 import org.isoron.uhabits.activities.habits.edit.HabitTypeDialog
 import org.isoron.uhabits.activities.habits.list.views.HabitCardListAdapter
+import org.isoron.uhabits.activities.habits.stats.StatisticsActivity
 import org.isoron.uhabits.core.commands.ArchiveHabitsCommand
 import org.isoron.uhabits.core.commands.ChangeHabitColorCommand
 import org.isoron.uhabits.core.commands.Command
@@ -48,13 +47,10 @@ import org.isoron.uhabits.core.commands.DeleteHabitsCommand
 import org.isoron.uhabits.core.commands.EditHabitCommand
 import org.isoron.uhabits.core.commands.UnarchiveHabitsCommand
 import org.isoron.uhabits.core.models.Habit
-import org.isoron.uhabits.core.models.HabitList
 import org.isoron.uhabits.core.models.PaletteColor
 import org.isoron.uhabits.core.preferences.Preferences
 import org.isoron.uhabits.core.tasks.TaskRunner
 import org.isoron.uhabits.core.ui.ThemeSwitcher
-import org.isoron.uhabits.core.ui.callbacks.CheckMarkDialogCallback
-import org.isoron.uhabits.core.ui.callbacks.NumberPickerCallback
 import org.isoron.uhabits.core.ui.callbacks.OnColorPickedCallback
 import org.isoron.uhabits.core.ui.callbacks.OnConfirmedCallback
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsBehavior
@@ -65,9 +61,7 @@ import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsBehavior.Message
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsBehavior.Message.IMPORT_FAILED
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsBehavior.Message.IMPORT_SUCCESSFUL
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsMenuBehavior
-import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsPresenter
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsSelectionMenuBehavior
-import org.isoron.uhabits.core.utils.MidnightTimer
 import org.isoron.uhabits.inject.ActivityContext
 import org.isoron.uhabits.inject.ActivityScope
 import org.isoron.uhabits.intents.IntentFactory
@@ -85,6 +79,7 @@ import org.isoron.uhabits.utils.showSendFileScreen
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 const val RESULT_IMPORT_DATA = 101
 const val RESULT_EXPORT_CSV = 102
@@ -94,16 +89,14 @@ const val RESULT_REPAIR_DB = 105
 const val REQUEST_OPEN_DOCUMENT = 106
 const val REQUEST_SETTINGS = 107
 
-@Inject
 @ActivityScope
-class ListHabitsScreen(
+class ListHabitsScreen
+@Inject constructor(
     @ActivityContext val context: Context,
     private val commandRunner: CommandRunner,
-    private val midnightTimer: MidnightTimer,
     private val intentFactory: IntentFactory,
     private val themeSwitcher: ThemeSwitcher,
     private val adapter: HabitCardListAdapter,
-    private val allHabits: HabitList,
     private val taskRunner: TaskRunner,
     private val exportDBFactory: ExportDBTaskFactory,
     private val importTaskFactory: ImportDataTaskFactory,
@@ -112,7 +105,6 @@ class ListHabitsScreen(
     private val preferences: Preferences,
     private val rootView: Lazy<ListHabitsRootView>
 ) : CommandRunner.Listener,
-    MidnightTimer.MidnightListener,
     ListHabitsBehavior.Screen,
     ListHabitsMenuBehavior.Screen,
     ListHabitsSelectionMenuBehavior.Screen {
@@ -121,35 +113,15 @@ class ListHabitsScreen(
 
     fun onAttached() {
         commandRunner.addListener(this)
-        midnightTimer.addListener(this)
     }
 
     fun onDetached() {
         commandRunner.removeListener(this)
-        midnightTimer.removeListener(this)
-    }
-
-    override fun refresh() {
-        adapter.setState(
-            ListHabitsPresenter.buildState(
-                allHabits = allHabits,
-                filter = adapter.filter,
-                primaryOrder = adapter.primaryOrder,
-                secondaryOrder = adapter.secondaryOrder,
-                checkmarkCount = MAX_CHECKMARK_COUNT,
-                theme = themeSwitcher.currentTheme!!
-            )
-        )
-    }
-
-    override fun atMidnight() {
-        activity.runOnUiThread { refresh() }
     }
 
     override fun onCommandFinished(command: Command) {
         val msg = getExecuteString(command)
         if (msg != null) activity.showMessage(msg)
-        refresh()
     }
 
     fun onResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -167,7 +139,7 @@ class ListHabitsScreen(
             val cacheDir = activity.externalCacheDir
             val tempFile = File.createTempFile("import", "", cacheDir)
             inStream.copyTo(tempFile)
-            onImportData(JavaUserFile(tempFile.toPath())) { tempFile.delete() }
+            onImportData(tempFile) { tempFile.delete() }
         } catch (e: IOException) {
             activity.showMessage(activity.resources.getString(R.string.could_not_import))
             e.printStackTrace()
@@ -177,10 +149,10 @@ class ListHabitsScreen(
     private fun onSettingsResult(resultCode: Int) {
         when (resultCode) {
             RESULT_IMPORT_DATA -> showImportScreen()
-            RESULT_EXPORT_CSV -> behavior.value.onExportCSV()
+            RESULT_EXPORT_CSV -> behavior.get().onExportCSV()
             RESULT_EXPORT_DB -> onExportDB()
-            RESULT_BUG_REPORT -> behavior.value.onSendBugReport()
-            RESULT_REPAIR_DB -> behavior.value.onRepairDB()
+            RESULT_BUG_REPORT -> behavior.get().onSendBugReport()
+            RESULT_REPAIR_DB -> behavior.get().onRepairDB()
         }
     }
 
@@ -213,8 +185,8 @@ class ListHabitsScreen(
         activity.startActivity(intent)
     }
 
-    override fun showHabitScreen(habitId: Long) {
-        val intent = intentFactory.startShowHabitActivity(activity, habitId)
+    override fun showHabitScreen(h: Habit) {
+        val intent = intentFactory.startShowHabitActivity(activity, h)
         activity.startActivity(intent)
     }
 
@@ -265,7 +237,7 @@ class ListHabitsScreen(
             return
         }
         val baseColor = themeSwitcher.currentTheme!!.color(color).toInt()
-        rootView.value.konfettiView.start(
+        rootView.get().konfettiView.start(
             Party(
                 speed = 0f,
                 maxSpeed = 16f,
@@ -290,26 +262,21 @@ class ListHabitsScreen(
         activity.startActivityForResult(intent, REQUEST_SETTINGS)
     }
 
+    override fun showStatisticsScreen() {
+        val intent = Intent(activity, StatisticsActivity::class.java)
+        activity.startActivity(intent)
+    }
+
     override fun showColorPicker(defaultColor: PaletteColor, callback: OnColorPickedCallback) {
         val picker = colorPickerFactory.create(defaultColor, themeSwitcher.currentTheme!!)
         picker.setListener(callback)
         picker.dismissCurrentAndShow(activity.supportFragmentManager, "picker")
     }
 
-    override fun showCategoryInput(current: String, onConfirmed: (String) -> Unit) {
-        val fm = (context as AppCompatActivity).supportFragmentManager
-        val dialog = CategoryDialog()
-        dialog.arguments = Bundle().apply {
-            putString("category", current)
-        }
-        dialog.onConfirmed = onConfirmed
-        dialog.dismissCurrentAndShow(fm, "categoryDialog")
-    }
-
     override fun showNumberPopup(
         value: Double,
         notes: String,
-        callback: NumberPickerCallback
+        callback: ListHabitsBehavior.NumberPickerCallback
     ) {
         val fm = (context as AppCompatActivity).supportFragmentManager
         val dialog = NumberDialog()
@@ -325,9 +292,9 @@ class ListHabitsScreen(
         selectedValue: Int,
         notes: String,
         color: PaletteColor,
-        callback: CheckMarkDialogCallback
+        callback: ListHabitsBehavior.CheckMarkDialogCallback
     ) {
-        val theme = rootView.value.currentTheme()
+        val theme = rootView.get().currentTheme()
         val fm = (context as AppCompatActivity).supportFragmentManager
         val dialog = CheckmarkDialog()
         dialog.arguments = Bundle().apply {
@@ -381,12 +348,12 @@ class ListHabitsScreen(
         }
     }
 
-    private fun onImportData(file: org.isoron.platform.io.UserFile, onFinished: () -> Unit) {
+    private fun onImportData(file: File, onFinished: () -> Unit) {
         taskRunner.execute(
             importTaskFactory.create(file) { result ->
                 when (result) {
                     ImportDataTask.SUCCESS -> {
-                        refresh()
+                        adapter.refresh()
                         activity.showMessage(activity.resources.getString(R.string.habits_imported))
                     }
 
