@@ -102,6 +102,10 @@ dependencies {
     implementation(libs.appIntro)
     implementation(libs.jsr305)
     implementation(libs.dagger)
+    // kotlin-inject wiring (upstream dev form, fork HEAD 82c1ff2): the android
+    // module's inject components use me.tatarka.inject annotations, which the
+    // v2.3.1-based file never declared — run #39 failed on Unresolved reference 'me'.
+    implementation(libs.kotlin.inject.runtime)
     implementation(libs.guava)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
@@ -114,6 +118,8 @@ dependencies {
     implementation(libs.legacy.preference.v14)
     implementation(libs.legacy.support.v4)
     implementation(libs.material)
+    // Used by utils/DatabaseUtils.kt and tasks/ExportDBTask.kt on dev.
+    implementation(libs.documentfile)
     implementation(libs.opencsv)
     implementation(libs.konfetti.xml)
     // Firebase login + cloud sync (branch firebase-login)
@@ -126,6 +132,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(project(":uhabits-core"))
     ksp(libs.dagger.compiler)
+    ksp(libs.kotlin.inject.compiler)
 
     androidTestImplementation(libs.bundles.androidTest)
     testImplementation(libs.bundles.test)
