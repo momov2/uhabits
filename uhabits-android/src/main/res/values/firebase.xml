@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  ~ Copyright (C) 2026 Loop Habit Tracker contributors.
+  ~
+  ~ This file is part of Loop Habit Tracker.
+  ~
+  ~ Loop Habit Tracker is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU General Public License as published by the
+  ~ Free Software Foundation, either version 3 of the License, or (at your
+  ~ option) any later version.
+  ~
+  ~ Loop Habit Tracker is distributed in the hope that it will be useful, but
+  ~ WITHOUT ANY WARRANTY; without any implied warranty of MERCHANTABILITY
+  ~ or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+  ~ more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License along
+  ~ with this program. If not, see <http://www.gnu.org/licenses/>.
+  -->
+
+<resources>
+    <!--
+      Google Sign-In "Web client ID" (OAuth 2.0 client ID for a Web
+      application) from the Firebase project. This is NOT a secret, but it
+      must match the Firebase project in google-services.json.
+
+      HOW TO FILL IT IN:
+      1. In the Firebase console, open Authentication -> Sign-in method and
+         enable the Google provider.
+      2. The Web client ID is shown there, and it also appears in the
+         re-downloaded google-services.json as the oauth_client entry with
+         "client_type": 3.
+      3. Replace the placeholder below with that client ID
+         (looks like 88671737361-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com).
+
+      Until this is replaced, "Sign in with Google" will show an error
+      instead of opening the account picker. The Android OAuth client
+      (SHA-1 of the release keystore) must also be registered in Google
+      Cloud, otherwise sign-in will fail after the account is picked.
+    -->
+    <string name="google_web_client_id" translatable="false">88671737361-bqamnu24jukd43t4s8hjo30ljuq4be84.apps.googleusercontent.com</string>
+</resources>
