@@ -88,8 +88,8 @@ class HabitsApplication : Application() {
         try {
             firebaseAuthManager = FirebaseAuthManager(context)
             firebaseSyncManager = FirebaseSyncManager(habitList, component.modelFactory)
-            firebaseSyncManager.startAutoSync()
-            firebaseSyncManager.syncOnAppStart()
+            firebaseSyncManager?.startAutoSync()
+            firebaseSyncManager?.syncOnAppStart()
         } catch (e: Exception) {
             Log.w(TAG, "Firebase init failed; continuing offline", e)
         }
@@ -116,10 +116,9 @@ class HabitsApplication : Application() {
         reminderScheduler.stopListening()
         widgetUpdater.stopListening()
         notificationTray.stopListening()
-        // Only set if Firebase init succeeded in onCreate (see the
-        // try/catch there); otherwise this would throw
-        // UninitializedPropertyAccessException.
-        if (::firebaseSyncManager.isInitialized) firebaseSyncManager.stopAutoSync()
+        // Null when Firebase init failed in onCreate (see the try/catch
+        // there); the app keeps running offline in that case.
+        firebaseSyncManager?.stopAutoSync()
         super.onTerminate()
     }
 
@@ -131,11 +130,14 @@ class HabitsApplication : Application() {
 
         lateinit var component: HabitsApplicationComponent
 
-        /** Google Sign-In via Firebase Auth (Credential Manager). */
-        lateinit var firebaseAuthManager: FirebaseAuthManager
+        /** Google Sign-In via Firebase Auth (Credential Manager).
+         * Null when Firebase init failed in onCreate; Settings guards
+         * every access, so the app keeps running offline. */
+        var firebaseAuthManager: FirebaseAuthManager? = null
 
-        /** Firestore sync for the local habit database. */
-        lateinit var firebaseSyncManager: FirebaseSyncManager
+        /** Firestore sync for the local habit database.
+         * Null when Firebase init failed in onCreate. */
+        var firebaseSyncManager: FirebaseSyncManager? = null
 
         fun isTestMode(): Boolean {
             return try {
