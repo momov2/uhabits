@@ -129,7 +129,7 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
                 return true
             }
             "signOutGoogle" -> {
-                HabitsApplication.firebaseAuthManager.signOut()
+                HabitsApplication.firebaseAuthManager?.signOut()
                 Toast.makeText(requireContext(), R.string.signed_out, Toast.LENGTH_LONG).show()
                 updateAccountStatus()
                 return true
@@ -167,7 +167,7 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
      * only the actions that make sense for that state.
      */
     private fun updateAccountStatus() {
-        val user = HabitsApplication.firebaseAuthManager.currentUser
+        val user = HabitsApplication.firebaseAuthManager?.currentUser
         val statusPref = findPreference("accountStatus")
         statusPref.summary = if (user != null) {
             getString(R.string.account_signed_in_as, user.email ?: user.uid)
@@ -180,8 +180,19 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
     }
 
     private fun signInWithGoogle() {
+        val auth = HabitsApplication.firebaseAuthManager
+        if (auth == null) {
+            // Firebase failed to initialise at startup; the app keeps
+            // running offline, so sign-in is simply unavailable.
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.sign_in_failed, "Firebase tidak tersedia"),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
         uiScope.launch {
-            val result = HabitsApplication.firebaseAuthManager.signIn(requireActivity())
+            val result = auth.signIn(requireActivity())
             result.onSuccess { user ->
                 Toast.makeText(
                     requireContext(),
@@ -204,6 +215,14 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
 
     private fun syncNow() {
         val sync = HabitsApplication.firebaseSyncManager
+        if (sync == null) {
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.sync_failed, "Firebase tidak tersedia"),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
         if (!sync.isSignedIn()) {
             Toast.makeText(requireContext(), R.string.sync_not_signed_in, Toast.LENGTH_LONG).show()
             return
