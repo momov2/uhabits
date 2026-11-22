@@ -69,11 +69,13 @@ import org.isoron.uhabits.core.models.WeekdayList
  * - Upload always writes the full local state, so after a sync both sides
  *   hold the merged state.
  *
- * Safety: sync never deletes local data. A failed upload or download
- * leaves the local database exactly as it was, and the failure is
- * reported to the caller instead of being swallowed. Firestore's offline
- * persistence (enabled by default on Android) queues writes while the
- * device is offline and sends them when connectivity returns.
+ * Safety: sync never deletes local data. A failed upload leaves the
+ * local database exactly as it was, and the failure is reported to the
+ * caller instead of being swallowed. A failed download is logged and
+ * treated as "nothing downloaded", so the upload of the merged local
+ * state still runs. Firestore's offline persistence (enabled by default
+ * on Android) queues writes while the device is offline and sends them
+ * when connectivity returns.
  */
 class FirebaseSyncManager(
     private val habitList: HabitList,
@@ -159,7 +161,13 @@ class FirebaseSyncManager(
     }
 
     private suspend fun uploadAllHabits(uid: String): Int {
-        val habits = habitList.toList()
+        // Snapshot under the list's lock: SQLiteHabitList.iterator() is
+        // @Synchronized but hands out a live LinkedList iterator, so the
+        // lock is released before toList() finishes iterating. Copying
+        // while holding the same monitor prevents a
+        // ConcurrentModificationException if the user edits a habit on the
+        // main thread mid-upload.
+        val habits: List<Habit> = synchronized(habitList) { habitList.toList() }
         for (habit in habits) {
             val doc = db.collection(USERS).document(uid)
                 .collection(HABITS).document(habit.uuid ?: continue)
@@ -187,13 +195,32 @@ class FirebaseSyncManager(
      * habits created locally).
      */
     private suspend fun downloadAndMerge(uid: String): Downloaded {
-        val snapshot = db.collection(USERS).document(uid)
-            .collection(HABITS).get().await()
+        // A missing Firestore database (or rejected rules) surfaces here
+        // as FirebaseFirestoreException. Treat a failed download as
+        // "nothing downloaded" instead of aborting the whole sync: the
+        // failure is logged with an actionable hint and the upload below
+        // still runs. (Check in the Firebase console that a Firestore
+        // database exists in the project and that the user may read
+        // users/{uid}/habits/*.)
+        val snapshot = try {
+            db.collection(USERS).document(uid)
+                .collection(HABITS).get().await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Download failed (Firestore database may not exist " +
+                "in this Firebase project, or the rules reject the read)", e)
+            return Downloaded(habits = 0, created = 0)
+        }
         var created = 0
         isApplyingRemote = true
         try {
             for (doc in snapshot.documents) {
-                if (applyRemoteHabit(doc)) created++
+                // One corrupt remote document must not abort the whole
+                // download: skip it, log it, and keep merging the rest.
+                try {
+                    if (applyRemoteHabit(doc)) created++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Skipping corrupt remote habit document ${doc.id}", e)
+                }
             }
         } finally {
             isApplyingRemote = false
@@ -246,9 +273,11 @@ class FirebaseSyncManager(
         habit.question = doc.getString("question") ?: ""
         habit.type = parseHabitType(doc.getString("type"))
         habit.color = PaletteColor((doc.getLong("color")?.toInt() ?: 8).coerceIn(0, 19))
+        // A denominator of 0 would make Frequency produce an Infinity
+        // score when the habit is recomputed; clamp it to 1.
         habit.frequency = Frequency(
             doc.getLong("frequencyNumerator")?.toInt() ?: 1,
-            doc.getLong("frequencyDenominator")?.toInt() ?: 1
+            (doc.getLong("frequencyDenominator")?.toInt() ?: 1).coerceAtLeast(1)
         )
         habit.targetType = parseTargetType(doc.getString("targetType"))
         habit.targetValue = (doc.get("targetValue") as? Number)?.toDouble() ?: 0.0
