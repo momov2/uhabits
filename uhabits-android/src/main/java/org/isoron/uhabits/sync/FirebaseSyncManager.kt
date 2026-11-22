@@ -28,6 +28,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -178,13 +179,17 @@ class FirebaseSyncManager(
         val habits: List<Habit> = synchronized(habitList) { habitList.toList() }
         // Upload in parallel instead of one document at a time: 19
         // sequential round-trips made a manual sync look frozen for
-        // tens of seconds with no feedback at all.
-        val jobs = habits.map { habit ->
-            async {
-                val uuid = habit.uuid ?: return@async
-                val doc = db.collection(USERS).document(uid)
-                    .collection(HABITS).document(uuid)
-                doc.set(serializeHabit(habit)).await()
+        // tens of seconds with no feedback at all. coroutineScope is
+        // required here: uploadAllHabits is a plain suspend function,
+        // not a CoroutineScope, so bare async {} does not compile.
+        val jobs = coroutineScope {
+            habits.map { habit ->
+                async {
+                    val uuid = habit.uuid ?: return@async
+                    val doc = db.collection(USERS).document(uid)
+                        .collection(HABITS).document(uuid)
+                    doc.set(serializeHabit(habit)).await()
+                }
             }
         }
         jobs.awaitAll()
@@ -226,19 +231,30 @@ class FirebaseSyncManager(
             return Downloaded(habits = 0, created = 0)
         }
         var created = 0
-        isApplyingRemote = true
-        try {
-            for (doc in snapshot.documents) {
-                // One corrupt remote document must not abort the whole
-                // download: skip it, log it, and keep merging the rest.
-                try {
-                    if (applyRemoteHabit(doc)) created++
-                } catch (e: Exception) {
-                    Log.w(TAG, "Skipping corrupt remote habit document ${doc.id}", e)
+        // Apply the merge on the Main thread. HabitList notifies its
+        // observers synchronously when habits/entries change, and the
+        // list UI reads the live list on Main. Mutating the list from
+        // Dispatchers.IO crashed the app: the UI was either touched
+        // from the wrong thread (CalledFromWrongThreadException) or
+        // iterated while the background thread changed it
+        // (ConcurrentModificationException). Both escape the caller's
+        // try/catch because they fire on the Main thread, not inside
+        // the sync coroutine — which is why the app died with no toast.
+        withContext(Dispatchers.Main) {
+            isApplyingRemote = true
+            try {
+                for (doc in snapshot.documents) {
+                    // One corrupt remote document must not abort the whole
+                    // download: skip it, log it, and keep merging the rest.
+                    try {
+                        if (applyRemoteHabit(doc)) created++
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Skipping corrupt remote habit document ${doc.id}", e)
+                    }
                 }
+            } finally {
+                isApplyingRemote = false
             }
-        } finally {
-            isApplyingRemote = false
         }
         return Downloaded(habits = snapshot.size(), created = created)
     }
