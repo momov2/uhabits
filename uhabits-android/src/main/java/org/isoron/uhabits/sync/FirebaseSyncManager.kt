@@ -26,10 +26,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.isoron.platform.time.LocalDate
 import org.isoron.uhabits.core.models.Entry
 import org.isoron.uhabits.core.models.Frequency
@@ -143,11 +146,16 @@ class FirebaseSyncManager(
      * coroutine; does the work on Dispatchers.IO.
      */
     suspend fun syncNow(): SyncStats = withContext(Dispatchers.IO) {
-        val uid = currentUid()
-            ?: throw IllegalStateException("Not signed in. Sign in with Google first.")
-        val downloaded = downloadAndMerge(uid)
-        val uploaded = uploadAllHabits(uid)
-        SyncStats(uploaded = uploaded, downloaded = downloaded.habits, created = downloaded.created)
+        // Never hang silently: without a timeout a stuck network call
+        // leaves the user with no feedback at all. 60s is generous for
+        // 19 small documents; a timeout surfaces as a "Sync failed" toast.
+        withTimeout(SYNC_TIMEOUT_MS) {
+            val uid = currentUid()
+                ?: throw IllegalStateException("Not signed in. Sign in with Google first.")
+            val downloaded = downloadAndMerge(uid)
+            val uploaded = uploadAllHabits(uid)
+            SyncStats(uploaded = uploaded, downloaded = downloaded.habits, created = downloaded.created)
+        }
     }
 
     /**
@@ -168,11 +176,18 @@ class FirebaseSyncManager(
         // ConcurrentModificationException if the user edits a habit on the
         // main thread mid-upload.
         val habits: List<Habit> = synchronized(habitList) { habitList.toList() }
-        for (habit in habits) {
-            val doc = db.collection(USERS).document(uid)
-                .collection(HABITS).document(habit.uuid ?: continue)
-            doc.set(serializeHabit(habit)).await()
+        // Upload in parallel instead of one document at a time: 19
+        // sequential round-trips made a manual sync look frozen for
+        // tens of seconds with no feedback at all.
+        val jobs = habits.map { habit ->
+            async {
+                val uuid = habit.uuid ?: return@async
+                val doc = db.collection(USERS).document(uid)
+                    .collection(HABITS).document(uuid)
+                doc.set(serializeHabit(habit)).await()
+            }
         }
+        jobs.awaitAll()
         return habits.size
     }
 
@@ -362,5 +377,8 @@ class FirebaseSyncManager(
         /** Local edits are uploaded this long after the last change, so a
          * burst of taps results in a single upload. */
         private const val AUTO_UPLOAD_DELAY_MS = 3000L
+
+        // A manual sync must never hang silently with no feedback.
+        private const val SYNC_TIMEOUT_MS = 60_000L
     }
 }
