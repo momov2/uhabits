@@ -228,6 +228,10 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
             return
         }
         uiScope.launch {
+            // Immediate feedback: the sync uploads 19 habits one by one
+            // and only reports at the very end, so without this the tap
+            // looks dead while the work is still running.
+            Toast.makeText(requireContext(), R.string.syncing, Toast.LENGTH_SHORT).show()
             try {
                 val stats = sync.syncNow()
                 Toast.makeText(
